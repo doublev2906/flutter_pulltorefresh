@@ -110,6 +110,14 @@ class RefreshPhysics extends ScrollPhysics {
   @override
   double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
     // TODO: implement applyPhysicsToUserOffset
+    // Guard: the RefreshController may already be disposed (headerMode == null)
+    // while a pending pointer/ballistic event is still being dispatched
+    // (e.g. inside a NestedScrollView when the host page is leaving). Fall back
+    // to the parent physics instead of throwing a null-check error.
+    if (controller?.headerMode == null) {
+      return parent?.applyPhysicsToUserOffset(position, offset) ??
+          super.applyPhysicsToUserOffset(position, offset);
+    }
     viewportRender ??=
         findViewport(controller!.position?.context.storageContext);
     if (controller!.headerMode!.value == RefreshStatus.twoLeveling) {
@@ -169,6 +177,12 @@ class RefreshPhysics extends ScrollPhysics {
 
   @override
   double applyBoundaryConditions(ScrollMetrics position, double value) {
+    // Guard: see [applyPhysicsToUserOffset]. Bail out to the parent physics when
+    // the controller has been disposed mid-gesture.
+    if (controller?.headerMode == null) {
+      return parent?.applyBoundaryConditions(position, value) ??
+          super.applyBoundaryConditions(position, value);
+    }
     final ScrollPosition scrollPosition = position as ScrollPosition;
     viewportRender ??=
         findViewport(controller!.position?.context.storageContext);
@@ -264,6 +278,13 @@ class RefreshPhysics extends ScrollPhysics {
   Simulation? createBallisticSimulation(
       ScrollMetrics position, double velocity) {
     // TODO: implement createBallisticSimulation
+    // Guard: see [applyPhysicsToUserOffset]. This is the path reported in
+    // Crashlytics (refresh_physics.dart:276) where a NestedScrollView inner
+    // ballistic fires after the RefreshController was disposed.
+    if (controller?.headerMode == null) {
+      return parent?.createBallisticSimulation(position, velocity) ??
+          super.createBallisticSimulation(position, velocity);
+    }
     viewportRender ??=
         findViewport(controller!.position?.context.storageContext);
 
