@@ -328,6 +328,18 @@ abstract class RefreshIndicatorState<T extends RefreshIndicator>
 
   @override
   Widget build(BuildContext context) {
+    // Guard: after the RefreshController is disposed, or while the widget tree
+    // is rebuilt with the app in the background (e.g. returning from an OAuth
+    // Safari sheet), [mode] (headerMode?.value) can be null. Passing null into
+    // buildContent (whose RefreshStatus parameter is non-null) throws
+    // "type 'Null' is not a subtype of type 'RefreshStatus'". Because this
+    // build returns a sliver, the resulting RenderErrorBox lands in a sliver
+    // slot and escalates into a hard "RenderErrorBox is not a subtype of
+    // RenderSliver" crash, greying out the whole screen. Return a valid empty
+    // sliver instead; the next rebuild (after re-subscribing) restores content.
+    if (mode == null) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
     return SliverRefresh(
         paintOffsetY: widget.offset,
         child: RotatedBox(
@@ -537,6 +549,13 @@ abstract class LoadIndicatorState<T extends LoadIndicator> extends State<T>
   @override
   Widget build(BuildContext context) {
     // TODO: implement build
+    // Same null-mode guard as the header indicator: a null [mode] here would
+    // flow into buildContent/SliverLoading and throw inside a sliver slot,
+    // cascading into a RenderErrorBox/RenderSliver crash. See the header
+    // build() above for the full rationale.
+    if (mode == null) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
     return SliverLoading(
         hideWhenNotFull: configuration!.hideFooterWhenNotFull,
         floating: widget.loadStyle == LoadStyle.ShowAlways
